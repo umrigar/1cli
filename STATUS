@@ -1,2 +1,1 @@
-Working.  Uncomfortable with initCtx used for declaring dynamic ctx fields
-in generator.
+Working.  Need more library fns, monkey-patching and options.

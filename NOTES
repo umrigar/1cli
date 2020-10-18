@@ -1,0 +1,4 @@
+Could have used 3 separate begin(), loop() and end() functions
+accessing dynamic context using closures.  But that would not allow
+const/var/let declarations across the functions.  Implemented
+generator solution allows this.
