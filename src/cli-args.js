@@ -1,5 +1,41 @@
+const { Option, Options } = require('./options');
+
 const  Path = require('path');
 const fs = require('fs');
+
+const OPTIONS = {
+  eval: new Option({
+    shortOpt: 'e',
+    longOpt: 'eval',
+    doc: `eval SCRIPT; script starting with BEGIN/END only eval'd once`,
+    isMultiple: true,
+    arg: 'SCRIPT',
+  }),
+  fieldSep: new Option({
+    shortOpt: 'f',
+    longOpt: 'field-separator',
+    doc: 'field separator splits line _ into _0, _1, ... with -n or -p',
+    arg: 'FIELD-SEPARATOR',
+  }),
+  noPrintLoop: new Option({
+    shortOpt: 'n',
+    longOpt: 'no-print',
+    doc:  'repeatedly eval non-BEGIN/END SCRIPT for each _',
+    type: 'boolean',
+  }),
+  printLoop: new Option({
+    shortOpt: 'p',
+    longOpt: 'print',
+    doc: 'print _ after each repeat of eval non-BEGIN/END SCRIPT for each _',
+    type: 'boolean',
+  }),
+};
+
+
+const options = new Options(OPTIONS);
+console.log(options.options, options.nonOptions);
+process.exit(1);
+
 
 class CliArgs {
 

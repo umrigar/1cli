@@ -1,98 +1,128 @@
-const CliArgs = require('./cli-args');
-const { File, print } = require('./lib.js');
+const go = require('./go');
+const {Option, Options} = require('./options');
 
-async function main() {
-  const args = new CliArgs();
-  const state = new State(args);
-  const f = makeFunction(args, state.initCtx())(...Object.values(STATIC_CTX));
-  const gen = f();
-  gen.next();   //step to first yield
-  for (const ctx of state.ctx()) {
-    gen.next(ctx);
+async function main(argv=process.argv) {
+  const options = new Options(OPTIONS);
+  if (argv.length < 3) usage(options);
+  const args = argv.slice(2);
+  const errors = [];
+  const fileSpecs = options.addOptionArgs(args, errors);
+  if (errors.length > 0 || options.options.help)  usage(options, errors);
+  if (checkOptions(options)) {
+    const cliArgs = new CliArgs(options, fileSpecs);
+    go(cliArgs);
   }
 }
 
 module.exports = main;
 
-class State {
-  constructor(cliArgs) {
-    this.cliArgs = cliArgs;
-  }
+function  usage(options, errors=[]) {
+  let text = '';
+  for (const err of options.errors) { text += err + "\n"; }
+  const prog = Path.basename(process.argv[1]);
+  text += `usage: ${prog} [ OPTION... ] [NON-OPTION-ARG...]\n`;
+  text += `where OPTION is\n`;
+  text += options.helpText();
+  console.error(text);
+  process.exit(1);
+}
 
-  initCtx() {
-    return (
-      { _: undefined,
-	_isDone: !this.cliArgs.opts.isLoop,
-	args: this.cliArgs.fileSpecs,
-      }
-    );
+function checkOptions(options) {
+  if (options.options.noPrintLoop && options.options.printLoop) {
+    console.error(`cannot specify both ${OPTIONS.noPrintLoop} and ` +
+		  `${OPTIONS.printLoop}`);
+    return false;
   }
+  return true;
+}
 
-  * ctx() {
-    const args = [... this.cliArgs.fileSpecs ];
-    while (args.length > 0) {
-      const arg = args.shift();
-      for (const line of File.lines(arg)) {
-	yield { _: line, _isDone: false, args };	
-      }
+class CliArgs {
+  constructor(options, fileSpecs) {
+    this.fileSpecs = fileSpecs;
+    this.options = Object.assign({}, options.options);
+    if (this.options.noPrintLoop) {
+      this.options.isLoop = true; this.options.isPrint = false;
     }
-    yield { _: undefined, _isDone: true, args, };
-  }
-}
-
-class Context {
-  constructor(cliArgs) {
-    this._isDone = !cliArgs.opts.isLoop;
-    this._args = cliArgs.fileSpecs;
-    this._ = null;
-  }
-}
-
-function makeFunction(cliArgs, ctx) {
-  const staticKeys = Object.keys(STATIC_CTX).join(', ');
-  const ctxKeys = Object.keys(ctx).join(', ');
-  const isPrint = cliArgs.opts.isPrint;
-  const segs = segments(cliArgs);
-  const body = `
-    return function*() {
-      let ${ctxKeys};
-      ${segs.begin}
-      while (true) {
-        ({ ${ctxKeys} } = yield);
-        if (_isDone) break;
-        ${segs.body}
-        if (${isPrint}) p(_);
-      }
-      ${segs.end}
+    if (this.options.printLoop) {
+      this.options.isLoop = true; this.options.isPrint = true;
     }
-  `;
-  //const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-  return new Function(...Object.keys(STATIC_CTX), body);
+    if (!this.options.monkeyNo) {
+      monkeyPatch();
+    }
+  }
 }
 
-function segments(cliArgs) {
-  const segs = { begin: '', body: '', end: '' };
-  cliArgs.opts.blks.forEach(blk => {
-    const m = blk.match(/\s*(BEGIN|END)?\s*:?\s*([^]*)/);
-    if (m[1]) {
-      segs[m[1].toLowerCase()] +=  m[2];
+const MONKEY_PATCHES = [
+  { name: 'm',
+    class: String,
+    fn: match,
+  },
+  { name: 'r',
+    class: String,
+    fn: replace,
+  },
+  { name: 's',
+    class: String,
+    fn: split,
+  },
+];
+function monkeyPatch() {
+  for (const spec of MONKEY_PATCHES) {
+    if (spec.class.prototype[spec.name]) {
+      console.error(`${spec.class}.prototype.${spec.name} already exists`);
     }
     else {
-      segs.body += m[0];
+      spec.class.prototype[spec.name] = spec.fn;
     }
-  });
-  return segs;
+  }
 }
 
-						  
-const STATIC_CTX = {
-  r: File.read,
-  p: print,
-};
+function replace(...args) {
+  return this.replace(...args);
+}
+function split(...args) {
+  return this.split(...args);
+}
 
-const DYNAMIC_CTX = {
-  _: ctx => nextLine(ctx),
-  _isDone: ctx => false,
-  
+function match(...args) {
+  const m = this.match(...args);
+  for (const k in m) { globalThis[`$${k}`] = m[k]; }
+  return m;
+}
+		       
+const OPTIONS = {
+  blks: new Option({
+    shortOpt: 'e',
+    longOpt: 'eval',
+    doc: `eval SCRIPT; script starting with BEGIN/END only eval'd once`,
+    isMultiple: true,
+    arg: 'SCRIPT',
+  }),
+  fieldSep: new Option({
+    shortOpt: 'F',
+    longOpt: 'field-separator',
+    doc: 'field separator splits line _ into _0, _1, ... with -n or -p',
+    arg: 'FIELD-SEPARATOR',
+  }),
+  help: new Option({
+    shortOpt: 'h',
+    longOpt: 'help',
+    doc: 'print this help message',
+  }),
+  monkeyNo: new Option({
+    shortOpt: 'm',
+    longOpt: 'monkey-no',
+    doc:  'do not monkey-patch standard classes _',
+  }),
+  noPrintLoop: new Option({
+    shortOpt: 'n',
+    longOpt: 'no-print',
+    doc:  'repeatedly eval non-BEGIN/END SCRIPTs for each _',
+  }),
+  printLoop: new Option({
+    shortOpt: 'p',
+    longOpt: 'print',
+    doc: 'print _ after each repeat of eval non-BEGIN/END SCRIPTs',
+  }),
 };
 
