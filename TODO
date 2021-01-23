@@ -1,0 +1,49 @@
+inplace option
+read files into vars
+printf format
+
+extended labels other than BEGIN/END:
+  label
+    : cond ':'
+    ;
+  cond
+    : 'BEGIN'
+    | 'END'
+    | expr
+    | expr flipFlopOp expr
+    ;
+  flipFlop
+    : '..'
+    | '^..'
+    | '..^'
+    | '^..^'
+    ;
+  expr
+    : '(' parenExpr ')'
+    | REGEX
+    | INT
+    ;
+  parenExpr
+    : primitive
+    | '(' parenExpr ')'
+    ;
+  primitive
+    : REGEX
+    | STRING
+    | STUFF
+    ;
+
+  STRING
+    : /'(?:[^\']|\\.)*'/
+    | /"(?:[^\']|\\.)*"/
+    | /`(?:[^\']|\\.)*`/
+    ;
+  STUFF
+    : /[^()\s]+/
+    ;
+   REGEX
+    : /\/(?[^\/\\]|\\.)+\// #allow \-escaped /
+    ;
+   INT
+    : [0-9]+
+    ;

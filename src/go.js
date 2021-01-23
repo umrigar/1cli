@@ -1,13 +1,23 @@
-const { File, print } = require('./lib.js');
+const { File, print, exec } = require('./lib');
+const monkeyPatch = require('./monkey-patch');
 
 function go(cliArgs) {
-  const state = new State(cliArgs);
-  const f = makeFunction(cliArgs,
-			 state.initCtx())(...Object.values(STATIC_CTX));
-  const gen = f();
-  gen.next();   //step to first yield
-  for (const ctx of state.ctx()) {
-    gen.next(ctx);
+  if (cliArgs.options.monkey) monkeyPatch();
+  if (cliArgs.options.loop) {
+    const state = new State(cliArgs);
+    const f = makeLoopFunction(cliArgs,
+			   state.initCtx())(...Object.values(STATIC_CTX));
+    const gen = f();
+    gen.next();   //step to first yield
+    if (cliArgs.options.loop) {
+      for (const ctx of state.ctx()) {
+	gen.next(ctx);
+      }
+    }
+  }
+  else {
+    const f = makeNoLoopFunction(cliArgs)(...Object.values(STATIC_CTX));
+    f();
   }
 }
 
@@ -21,8 +31,9 @@ class State {
   initCtx() {
     return (
       { _: undefined,
-	_isDone: !this.cliArgs.options.isLoop,
-	args: this.cliArgs.fileSpecs,
+	_n: undefined,
+	_isDone: false,
+	_args: this.cliArgs.fileSpecs,
       }
     );
   }
@@ -47,13 +58,21 @@ class State {
     const sep = this.fieldSeparator();
     while (args.length > 0) {
       const arg = args.shift();
+      let _n = 1;
       for (const line of File.lines(arg)) {
-	if (sep) {
-	  for (const [i, v] of line.split(sep).entries()) {
+	const splits = line.split && line.split(sep);
+	if (splits) {
+	  for (const [i, v] of splits.entries()) {
 	    globalThis[`_${i}`] = v;
 	  }
 	}
-	yield { _: line, _isDone: false, args };	
+	yield { _: line, _isDone: false, args, _n, };
+	if (splits) {
+	  for (const [i, _] of splits.entries()) {
+	    globalThis[`_${i}`] = undefined;
+	  }
+	}
+	_n++;
       }
     }
     yield { _: undefined, _isDone: true, args, };
@@ -68,10 +87,10 @@ class Context {
   }
 }
 
-function makeFunction(cliArgs, ctx) {
-  const staticKeys = Object.keys(STATIC_CTX).join(', ');
+function makeLoopFunction(cliArgs, ctx) {
+  const doLoop = !!cliArgs.options.loop;
   const ctxKeys = Object.keys(ctx).join(', ');
-  const isPrint = cliArgs.options.isPrint;
+  const isPrint = cliArgs.options.print;
   const segs = segments(cliArgs);
   const body = `
     return function*() {
@@ -89,9 +108,20 @@ function makeFunction(cliArgs, ctx) {
   return new Function(...Object.keys(STATIC_CTX), body);
 }
 
+  
+function makeNoLoopFunction(cliArgs) {
+  const segs = segments(cliArgs);
+  const body = `
+    return function() {
+      ${segs.body}
+    }  
+  `;
+  return new Function(...Object.keys(STATIC_CTX), body);
+}
+
 function segments(cliArgs) {
   const segs = { begin: '', body: '', end: '' };
-  (cliArgs.options.blks ?? []).forEach(blk => {
+  (cliArgs.options.eval ?? []).forEach(blk => {
     const m = blk.match(/\s*(BEGIN|END)?\s*:?\s*([^]*)/);
     if (m[1]) {
       segs[m[1].toLowerCase()] +=  m[2];
@@ -106,13 +136,9 @@ function segments(cliArgs) {
 						  
 const STATIC_CTX = {
   _r: File.read,
+  _d: File.dir,
   _p: print,
+  _x: exec,
+  $: exec,
 };
-
-const DYNAMIC_CTX = {
-  _: ctx => nextLine(ctx),
-  _isDone: ctx => false,
-  
-};
-
 

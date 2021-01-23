@@ -16,5 +16,9 @@
   "bugs": {
     "url": "https://github.com/umrigar/1line.js/issues"
   },
-  "homepage": "https://github.com/umrigar/1line.js#readme"
+  "homepage": "https://github.com/umrigar/1line.js#readme",
+  "dependencies": {
+    "commander": "^7.0.0",
+    "csv": "^5.3.2"
+  }
 }
