@@ -31,7 +31,7 @@ class File {
 
   static exists(path) { return fs.existsSync(path); }
 
-  static dir(path) { return fs.readdirSync(path); }
+  static dir(path='.') { return fs.readdirSync(path); }
 
 }
 
