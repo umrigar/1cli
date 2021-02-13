@@ -19,7 +19,7 @@ class File {
     let ret = fs.readFileSync(path === '-' ? 0 : path, charSet);
     let { extHandler, splitHandler } = DEFAULT_EXT_INFO;
     if (ext) {
-      const extension = path.match(/[^\.]*$/)[0];
+      const extension = path.match(/\.[^\.]*$/)[0];
       const info = SPECIAL_EXT_INFOS[extension];
       if (info) ( { extHandler, splitHandler, } = info );
     }
@@ -56,29 +56,37 @@ function csvOpts(delimiter=',') {
 	 };
 }
 const SPECIAL_EXT_INFOS = {
-  'json': {
+  '.json': {
     extHandler: contents => JSON.parse(contents),
+    doc: 'parsed as JSON content; never split into lines.',
   },
-  'jsonl': {
+  '.jsonl': {
     extHandler: contents =>
       contents.split('\n')
       .filter(line => line.trim())
       .map(line => JSON.parse(line)),
+    doc: 'each line parsed as JSON; always split into lines',
   },
-  'csv': {
+  '.csv': {
     extHandler: contents => csvParse(contents, csvOpts()),
+    doc: 'line parsed as comma-separated CSV; always split into lines',
   },
-  'tsv': {
+  '.tsv': {
     extHandler: contents => csvParse(contents, csvOpts('\t')),
+    doc: 'line parsed as tab-separated CSV; always split into lines',
   },
-  'psv': {
+  '.psv': {
     extHandler: contents => csvParse(contents, csvOpts('|')),
+    doc: 'line parsed as pipe \'|\' separated CSV; always split into lines',
   },
 };
 const DEFAULT_EXT_INFO = {
   splitHandler: text => text.split('\n'),
 };
 
+function docs(infos) {
+  return Object.fromEntries(Object.keys(infos).map(k => [k, infos[k].doc]));
+}
 
 function print(...args) { console.log(...args); }
 
@@ -93,5 +101,6 @@ module.exports = {
   File,
   print,
   exec,
+  extDocs: docs(SPECIAL_EXT_INFOS),
 };
 

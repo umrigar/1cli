@@ -31,6 +31,7 @@ class Options {
       .option('-l, --no-loop', 'run code only once')
       .option('-M, --monkey', 'monkey-patch standard classes', true)
       .option('-m, --no-monkey', 'do not monkey-patch standard classes')
+      .option('--man', 'output manual on stdout')
       .option('-P, --print', 'print _ "line" after each loop iteration', false)
       .option('-p, --no-print', 'do not print _ "line" after each loop ' +
 	      'iteration')
@@ -84,6 +85,7 @@ class Options {
   };
 
   help() { this.program.help(); }
+  helpInfo() { return this.program.helpInformation(); }
 
 }
 
