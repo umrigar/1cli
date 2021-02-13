@@ -2,14 +2,17 @@ const MONKEY_PATCHES = [
   { name: 'm',
     class: String,
     fn: match,
+    doc: `str.m(...) => str.match(...); results[0, 1]...] put into $0, $1...`,
   },
   { name: 'r',
     class: String,
     fn: replace,
+    doc: `str.r(...) => str.replace(...)`,
   },
   { name: 's',
     class: String,
     fn: split,
+    doc: `str.s(...) => str.split(...)`
   },
 ];
 

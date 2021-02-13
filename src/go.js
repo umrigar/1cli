@@ -1,45 +1,68 @@
 const { File, print, exec } = require('./lib');
 const monkeyPatch = require('./monkey-patch');
 
-function go(cliArgs) {
-  if (cliArgs.options.monkey) monkeyPatch();
-  if (cliArgs.options.loop) {
-    const state = new State(cliArgs);
-    const f = makeLoopFunction(cliArgs,
-			   state.initCtx())(...Object.values(STATIC_CTX));
+function go(options) {
+  if (options.monkey) monkeyPatch();
+  const pathsData = readPathsData(options);
+  const staticCtx = makeStaticCtx(pathsData);
+  const staticKeys = Object.keys(staticCtx);
+  const staticValues = Object.values(staticCtx);
+  if (options.loop) {
+    const state = new State(options, pathsData);
+    const fMaker = makeLoopFunction(options, staticKeys, state.initCtx());
+    const f = fMaker(...staticValues);
     const gen = f();
     gen.next();   //step to first yield
-    if (cliArgs.options.loop) {
+    if (options.loop) {
       for (const ctx of state.ctx()) {
 	gen.next(ctx);
       }
     }
   }
   else {
-    const f = makeNoLoopFunction(cliArgs)(...Object.values(STATIC_CTX));
+    const fMaker = makeNoLoopFunction(options, staticKeys)
+    const f = fMaker(...staticValues);
     f();
   }
+}
+
+const GLOBAL_FILES = '$files';
+
+function readPathsData(options) {
+  const paths = [];
+  const data = [];
+  const xpaths = options.xpaths;
+  globalThis[GLOBAL_FILES] = [];  
+  for (const [i, xpath] of xpaths.entries()) {
+    const { path, ext, split } = xpath;
+    paths.push(path);
+    data.push(File.read(path, { ext, split }));
+  }
+  return { paths, data };
 }
 
 module.exports = go;
 
 class State {
-  constructor(cliArgs) {
-    this.cliArgs = cliArgs;
+  constructor(options, pathsData) {
+    this.options = options;
+    Object.assign(this, pathsData);
+    this.sep = State.fieldSeparator(options);
   }
 
   initCtx() {
     return (
-      { _: undefined,
-	_n: undefined,
-	_isDone: false,
-	_args: this.cliArgs.fileSpecs,
+      { _: undefined,        //current "line"
+	_n: undefined,       //current line number (1-origin)
+	_path: undefined,    //current path being processed
+	_d: undefined,       //contents of current path
+	_isDone: false,      //generator control
       }
     );
   }
 
-  fieldSeparator() {
-    const fieldSep = this.cliArgs.options.fieldSep;
+  static fieldSeparator(options) {
+    const fieldSep = options.fieldSep;
     if (fieldSep) {
       if (fieldSep.startsWith('/') && fieldSep.endsWith('/')) {
 	return new RegExp(fieldSep.slice(1, -1));
@@ -54,44 +77,37 @@ class State {
   }
 
   * ctx() {
-    const args = [... this.cliArgs.fileSpecs ];
-    const sep = this.fieldSeparator();
-    while (args.length > 0) {
-      const arg = args.shift();
-      let _n = 1;
-      for (const line of File.lines(arg)) {
-	const splits = line.split && line.split(sep);
-	if (splits) {
-	  for (const [i, v] of splits.entries()) {
-	    globalThis[`_${i}`] = v;
+    const { paths, data, sep } = this;
+    for (let i = 0; i < data.length; ++i) {
+      if (data[i] instanceof Array) {
+	let _n = 1;
+	const _d = data[i];
+	const _path = paths[i];
+	for (const line of _d) {
+	  const splits = line.split && line.split(sep);
+	  if (splits) {
+	    for (const [i, v] of splits.entries()) {
+	      globalThis[`_${i}`] = v;
+	    }
 	  }
-	}
-	yield { _: line, _isDone: false, args, _n, };
-	if (splits) {
-	  for (const [i, _] of splits.entries()) {
-	    globalThis[`_${i}`] = undefined;
+	  yield { _: line,  _n, _d, _path, _isDone: false, };
+	  if (splits) {
+	    for (const [i, _] of splits.entries()) {
+	      globalThis[`_${i}`] = undefined;
+	    }
 	  }
-	}
-	_n++;
-      }
+	  _n++;
+	} //for (const line ...)
+      } //if (data[i] instanceof Array)
     }
-    yield { _: undefined, _isDone: true, args, };
+    yield Object.assign({}, this.initCtx(), { _isDone: true });
   }
 }
 
-class Context {
-  constructor(cliArgs) {
-    this._isDone = !cliArgs.options.isLoop;
-    this._args = cliArgs.fileSpecs;
-    this._ = null;
-  }
-}
-
-function makeLoopFunction(cliArgs, ctx) {
-  const doLoop = !!cliArgs.options.loop;
+function makeLoopFunction(options, staticKeys, ctx) {
   const ctxKeys = Object.keys(ctx).join(', ');
-  const isPrint = cliArgs.options.print;
-  const segs = segments(cliArgs);
+  const isPrint = options.print;
+  const segs = segments(options);
   const body = `
     return function*() {
       let ${ctxKeys};
@@ -105,23 +121,23 @@ function makeLoopFunction(cliArgs, ctx) {
       ${segs.end}
     }
   `;
-  return new Function(...Object.keys(STATIC_CTX), body);
+  return new Function(...staticKeys, body);
 }
 
   
-function makeNoLoopFunction(cliArgs) {
-  const segs = segments(cliArgs);
+function makeNoLoopFunction(options, staticKeys) {
+  const segs = segments(options);
   const body = `
     return function() {
       ${segs.body}
     }  
   `;
-  return new Function(...Object.keys(STATIC_CTX), body);
+  return new Function(...staticKeys, body);
 }
 
-function segments(cliArgs) {
+function segments(options) {
   const segs = { begin: '', body: '', end: '' };
-  (cliArgs.options.eval ?? []).forEach(blk => {
+  (options.eval ?? []).forEach(blk => {
     const m = blk.match(/\s*(BEGIN|END)?\s*:?\s*([^]*)/);
     if (m[1]) {
       segs[m[1].toLowerCase()] +=  m[2];
@@ -133,8 +149,12 @@ function segments(cliArgs) {
   return segs;
 }
 
+function makeStaticCtx(pathsData) {
+  const _pathsData = { _paths: pathsData.paths, _data: pathsData.data };
+  return Object.assign({}, BASE_STATIC_CTX, _pathsData);
+}
 						  
-const STATIC_CTX = {
+const BASE_STATIC_CTX = {
   _r: File.read,
   _d: File.dir,
   _p: print,

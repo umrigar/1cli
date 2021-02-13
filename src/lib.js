@@ -4,25 +4,35 @@ const csvParse = require('csv-parse/lib/sync');
 
 const CHAR_SET = 'utf8';
 
+/*
+ */
+
 class File {
 
-  static read(path, {charSet=CHAR_SET}={}, ext=true) {
-    const contents = fs.readFileSync(path === '-' ? 0 : path, charSet);
+  /** If options.ext, then special handling for recognized extensions
+   *  If options.split, then split content into array of lines when
+   *  applicable (not applicable when .json extension recognized).
+   */
+  static read(path, options={charSet: CHAR_SET, ext: true, split: true}) {
+    const charSet = options.charSet ?? CHAR_SET;
+    const { ext, split } = options;
+    let ret = fs.readFileSync(path === '-' ? 0 : path, charSet);
+    let { extHandler, splitHandler } = DEFAULT_EXT_INFO;
     if (ext) {
       const extension = path.match(/[^\.]*$/)[0];
-      const handler = EXTENSION_HANDLERS[extension];
-      if (handler) return handler(contents);
+      const info = SPECIAL_EXT_INFOS[extension];
+      if (info) ( { extHandler, splitHandler, } = info );
     }
-    return contents;
+    if (extHandler) ret = extHandler(ret);
+    if (split && splitHandler) ret = splitHandler(ret);
+    return ret;
   }
 
-  static * lines(path, {charSet='utf8', sep='\n', ext=true}={}) {
-    let contents = File.read(path, charSet);
-    if (contents.endsWith && contents.endsWith(sep)) {
-      contents = contents.slice(0, -1);
+  static * lines(path, options={charSet: CHAR_SET}) {
+    let lines = File.read(path, Object.assign({}, options, { split: true}));
+    if (lines instanceof Array) {
+      for (const line of lines) yield line;
     }
-    const lines = contents.split ? contents.split(sep) : contents;
-    for (const line of lines) yield line;
   }
 
   static json(path, charSet='utf8') {
@@ -45,16 +55,30 @@ function csvOpts(delimiter=',') {
 	   relax_column_count: true,
 	 };
 }
-EXTENSION_HANDLERS = {
-  'json': contents => JSON.parse(contents),
-  'jsonl': contents =>
-    contents.split('\n')
-    .filter(line => line.trim())
-    .map(line => JSON.parse(line)),
-  'csv': contents => csvParse(contents, csvOpts()),
-  'tsv': contents => csvParse(contents, csvOpts('\t')),
-  'psv': contents => csvParse(contents, csvOpts('|')),
+const SPECIAL_EXT_INFOS = {
+  'json': {
+    extHandler: contents => JSON.parse(contents),
+  },
+  'jsonl': {
+    extHandler: contents =>
+      contents.split('\n')
+      .filter(line => line.trim())
+      .map(line => JSON.parse(line)),
+  },
+  'csv': {
+    extHandler: contents => csvParse(contents, csvOpts()),
+  },
+  'tsv': {
+    extHandler: contents => csvParse(contents, csvOpts('\t')),
+  },
+  'psv': {
+    extHandler: contents => csvParse(contents, csvOpts('|')),
+  },
 };
+const DEFAULT_EXT_INFO = {
+  splitHandler: text => text.split('\n'),
+};
+
 
 function print(...args) { console.log(...args); }
 
