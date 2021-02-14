@@ -103,7 +103,7 @@ $
 
 Here is the manual produced using the `--man` option:
 
-```shell
+```text
 $ 1line --man
 Usage: 1line [options] [...path]
 
