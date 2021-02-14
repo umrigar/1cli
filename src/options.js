@@ -1,6 +1,6 @@
 const commander = require('commander');
 
-const VERSION = '0.0.1';
+const VERSION = '0.0.2';
 
 class Options {
 
