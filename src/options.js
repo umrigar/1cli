@@ -8,7 +8,6 @@ class Options {
     const program = new commander.Command();
     const xpaths = this.xpaths = [];
     program
-      .name('1line.js')
       .storeOptionsAsProperties(false)
       .arguments('[...path]')
       .version(VERSION, '-v, --version')

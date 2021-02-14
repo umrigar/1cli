@@ -1,0 +1,5 @@
+user,course,ip
+john,cs123,192.168.1.2
+bill,cs223,192.168.1.3
+mary,cs123,10.1.2.3
+sue,cs223,192.168.1.4
