@@ -19,7 +19,10 @@ class File {
     let ret = fs.readFileSync(path === '-' ? 0 : path, charSet);
     let { extHandler, splitHandler } = DEFAULT_EXT_INFO;
     if (ext) {
-      const extension = path.match(/\.[^\.]*$/)[0];
+      const retExt =
+        (ret.startsWith('{') ? '.json' : ret.startsWith('[') ? '.jsonl' : '');
+      const extension =
+        (path === '-') ? retExt : path.match(/\.[^\.]*$/)[0];
       const info = SPECIAL_EXT_INFOS[extension];
       if (info) ( { extHandler, splitHandler, } = info );
     }

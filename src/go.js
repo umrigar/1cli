@@ -11,6 +11,7 @@ function go(options) {
     const state = new State(options, pathsContents);
     const fMaker = makeLoopFunction(options, staticKeys, state.initCtx(false));
     const f = fMaker(...staticValues);
+    if (options.debug) process.exit(0);
     const gen = f();
     gen.next();   //step to first yield
     if (options.loop) {
@@ -22,6 +23,7 @@ function go(options) {
   else {
     const fMaker = makeNoLoopFunction(options, staticKeys)
     const f = fMaker(...staticValues);
+    if (options.debug) process.exit(0);
     f();
   }
 }
@@ -113,7 +115,9 @@ function makeLoopFunction(options, staticKeys, ctx) {
       ${segs.end}
     }
   `;
-  return new Function(...staticKeys, body);
+  const fn = new Function(...staticKeys, body);
+  if (options.debug) console.error(fn.toString());
+  return fn;
 }
 
   
@@ -124,7 +128,9 @@ function makeNoLoopFunction(options, staticKeys) {
       ${segs.body}
     }  
   `;
-  return new Function(...staticKeys, body);
+  const fn = new Function(...staticKeys, body);
+  if (options.debug) console.error(fn.toString());
+  return fn;
 }
 
 function segments(options) {
@@ -193,6 +199,11 @@ const BASE_STATIC_CTX_INFOS = {
   _d: {
     fn: File.dir,
     doc: '_d(path): return array of contents of directory dir',
+  },
+  _j: {
+    fn: arg => (typeof arg === 'string') ? JSON.parse(arg)
+      : JSON.stringify(arg, null, 2),
+    docs: '_j(arg) => convert arg to/from JSON',
   },
   _keys: {
     fn: o => Object.keys(o),

@@ -13,6 +13,7 @@ class Options {
       .arguments('[...path]')
       .version(VERSION, '-v, --version')
       .configureHelp({ sortOptions: true, })
+      .option('-d, --debug', 'output generated functions on stderr')
       .option('-e, --eval <code>',
   	      'evaluate <code>. Can be specified multiple times. ' +
 	      'If --loop, then evaluate for each _ "line". ' +
