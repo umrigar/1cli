@@ -1,4 +1,4 @@
-# 1line
+# 1cli
 
 Use JavaScript code snippets within "one-line" shell command-lines for
 file munging.
@@ -26,7 +26,7 @@ bill,cs223,192.168.1.3
 mary,cs123,10.1.2.3
 sue,cs223,192.168.1.4
 # convert
-$ $ 1line -e '_p(_j(_))'  examples/vm-ips.csv > ~/tmp/vm-ips.jsonl
+$ $ 1cli -e '_p(_j(_))'  examples/vm-ips.csv > ~/tmp/vm-ips.jsonl
 # show result
 $ cat ~/tmp/vm-ips.jsonl 
 {"user":"john","course":"cs123","ip":"192.168.1.2"}
@@ -45,7 +45,7 @@ The following example shows converting the same file `vm-ips.csv`
 into a json file with keys for each user:
 
 ```shell
-$ 1line -e 'BEGIN o={}' -e 'o[_.user]=_' -e 'END _p(_j(o))' \
+$ 1cli -e 'BEGIN o={}' -e 'o[_.user]=_' -e 'END _p(_j(o))' \
      examples/vm-ips.csv >~/tmp/vm-ips.json
 #show output (edited for limiting line length)
 $ cat ~/tmp/vm-ips.json
@@ -66,7 +66,7 @@ The following example filters `vm-ips.csv` to produce
 a jsonl contains all csv objects have `ip`'s starting with `10`.
 
 ```shell
-$ 1line -e '_.ip.startsWith('10.') && _p(_j(_))' examples/vm-ips.csv 
+$ 1cli -e '_.ip.startsWith('10.') && _p(_j(_))' examples/vm-ips.csv 
 {"user":"mary","course":"cs123","ip":"10.1.2.3"}
 $
 ```
@@ -85,7 +85,7 @@ $ cat examples/student-info.jsonl
 { "id": "123-456-jhn", "first": "John", "last": "Smith", "email": "john@x.com" }
 { "id": "123-456-bil", "first": "Bill", "last": "Gray", "email": "bill@x.com" }
 # join user from vm-ips.json to email id from student-infos.json
-$ 1line -e 'u=_.email.m(/^[^@]+/)[0]; x={..._contents[0][u], ..._}; _p(_j(x))' \
+$ 1cli -e 'u=_.email.m(/^[^@]+/)[0]; x={..._contents[0][u], ..._}; _p(_j(x))' \
     ~/tmp/vm-ips.json examples/student-info.jsonl \
     > ~/tmp/student-vm-ips.jsonl
 # show results (edited for line-length)
@@ -104,8 +104,8 @@ $
 Here is the manual produced using the `--man` option:
 
 ```text
-$ 1line --man
-Usage: 1line [options] [...path]
+$ 1cli --man
+Usage: 1cli [options] [...path]
 
 Options:
   -d, --debug                  output generated functions on stderr
