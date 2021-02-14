@@ -41,34 +41,37 @@ class Options {
 	      'extensions in [path...]',
 	      true)
       .option('-x, --no-ext', 'no special handling for extensions in [path...]')
+      /*
       .option('-S, --split',
 	      'split contents of [...path] into lines when applicable', true)
       .option('-s, --no-split',
 	      'do not split contents of [...path] into lines')      
+      */
       .option('--src <path>',
 	      'like specifying <path> in [...path]; ' +
-	      'always recognize --ext extensions and split lines ' +
+	      'always recognize --ext extensions and loop over "lines" ' +
 	      'when applicable',
-	      path => xpaths.push({ ext: true, split: true, path }))
+	      path => xpaths.push({ ext: true, loop: true, path }))
       .option('--src-no-ext <path>',
 	      'like specifying <path> in [...path]; ' +
-	      'split lines but do not recognize special -X extensions',
-	      path => xpaths.push({ ext: false, split: true, path }))
+	      'loop over "lines" but do not recognize special -X extensions',
+	      path => xpaths.push({ ext: false, loop: true, path }))
       .option('--src-x <path>', 'alias for --src-no-ext',
-	      path => xpaths.push({ ext: false, split: true, path }))
-      .option('--src-no-split <path>',
+	      path => xpaths.push({ ext: false, loop: true, path }))
+      .option('--src-no-loop <path>',
 	      'like specifying <path> in [...path]; ' +
-	      'recognize --ext extensions but do not split lines',
-	      path => xpaths.push({ ext: true, split: false, path }))
-      .option('--src-s <path>', 'alias for --src-no-split',
-	      path => xpaths.push({ ext: true, split: false, path }))
-      .option('--src-no-ext-no-split <path>',
+	      'recognize --ext extensions but do not loop over "lines"',
+	      path => xpaths.push({ ext: true, loop: false, path }))
+      .option('--src-l <path>', 'alias for --src-no-loop',
+	      path => xpaths.push({ ext: true, loop: false, path }))
+      .option('--src-no-loop-no-ext <path>',
 	      'like specifying <path> in [...path] ' +
 	      'arguments; ' +
-	      'do not recognize special extensions or split lines',
-	      path => xpaths.push({ ext: false, split: false, path }))
-      .option('--sx-src <path>', 'alias for --src-no-ext-no-split',
-	      path => xpaths.push({ ext: false, split: false, path }))
+	      'do not recognize special extensions; ' +
+	      'do not loop over "lines"',
+	      path => xpaths.push({ ext: false, loop: false, path }))
+      .option('--src-lx <path>', 'alias for --src-no-ext-no-split',
+	      path => xpaths.push({ ext: false, loop: false, path }))
     ;
     this.program = program;
   }

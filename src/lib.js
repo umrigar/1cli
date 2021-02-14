@@ -19,10 +19,8 @@ class File {
     let ret = fs.readFileSync(path === '-' ? 0 : path, charSet);
     let { extHandler, splitHandler } = DEFAULT_EXT_INFO;
     if (ext) {
-      const retExt =
-        (ret.startsWith('{') ? '.json' : ret.startsWith('[') ? '.jsonl' : '');
       const extension =
-        (path === '-') ? retExt : path.match(/\.[^\.]*$/)[0];
+        (path === '-') ? contentExtension(ret) : path.match(/\.[^\.]*$/)[0];
       const info = SPECIAL_EXT_INFOS[extension];
       if (info) ( { extHandler, splitHandler, } = info );
     }
@@ -48,9 +46,51 @@ class File {
 
 }
 
-File.r = File.read;
+File.f = File.read;
 File.d = File.dir;
 
+//@TODO: join obj1, obj2 on name; try to handle useful cases.
+function jsonJoin(name, obj1, obj2=undefined) {
+  if (obj1 instanceof Array && obj2 instanceof Array) {
+    const obj1Map = Object.fromEntries(obj1.filter(obj => obj[name] ?? true)
+				     .map(obj => [obj[name], obj]));
+    return obj2.filter(obj => obj[name] ?? true)
+      .map(obj => {
+	const val = obj[name];
+	return Object.assign({ name: val }, obj1Map[val], obj);
+      });
+  }
+}
+
+/** Attempt to guess extension when content is taken from stdin  */
+function contentExtension(content) {
+  if (content.startsWith('{')) {
+    return '.json';
+  }
+  else {
+    const lines = content.split('\n');
+    if (content.startsWith('[')) {
+      if (lines[0].endsWith(']')) {
+	return (lines.length > 1) ? '.jsonl' : '.json';
+      }
+      else {
+	return '.json';
+      }
+    }
+    else {
+      const maxSplit = [',', '\t', '|',]
+	    .map(delim => [delim, lines[0].split(delim).length])
+	    .sort((a, b) => b[1] - a[1])[0];
+      return (maxSplit[1] >= 2) ? DELIM_EXTS[maxSplit[0]]  : '';
+    }
+  }
+}
+
+const DELIM_EXTS = {
+  ',': '.csv',
+  '\t': '.tsv',
+  '|': '.psv'
+}
 function csvOpts(delimiter=',') {
   return { delimiter,
 	   columns: true,
@@ -72,15 +112,15 @@ const SPECIAL_EXT_INFOS = {
   },
   '.csv': {
     extHandler: contents => csvParse(contents, csvOpts()),
-    doc: 'line parsed as comma-separated CSV; always split into lines',
+    doc: 'parsed as comma-separated CSV with first line as header',
   },
   '.tsv': {
     extHandler: contents => csvParse(contents, csvOpts('\t')),
-    doc: 'line parsed as tab-separated CSV; always split into lines',
+    doc: 'parsed as tab-separated CSV with first line as header',
   },
   '.psv': {
     extHandler: contents => csvParse(contents, csvOpts('|')),
-    doc: 'line parsed as pipe \'|\' separated CSV; always split into lines',
+    doc: 'parsed as pipe \'|\' separated CSV with first line as header',
   },
 };
 const DEFAULT_EXT_INFO = {

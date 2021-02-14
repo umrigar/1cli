@@ -203,7 +203,7 @@ const BASE_STATIC_CTX_INFOS = {
   _j: {
     fn: arg => (typeof arg === 'string') ? JSON.parse(arg)
       : JSON.stringify(arg, null, 2),
-    docs: '_j(arg) => convert arg to/from JSON',
+    doc: '_j(arg) => convert arg to/from JSON',
   },
   _keys: {
     fn: o => Object.keys(o),
